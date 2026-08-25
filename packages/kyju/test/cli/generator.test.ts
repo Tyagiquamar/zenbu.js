@@ -143,6 +143,9 @@ describe("generator", () => {
 
     const content = fs.readFileSync(result.migrationPath, "utf-8");
     expect(content).toContain("migrate(prev, { apply })");
+    // the stub must fail loudly instead of silently advancing the version
+    // over untransformed data (issue #7)
+    expect(content).toContain("has not been customized yet");
   });
 
   it("getLastSnapshot returns null for empty journal", () => {

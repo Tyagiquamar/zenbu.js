@@ -146,8 +146,13 @@ const migration: KyjuMigration = {
   operations: ${opsJson},
   migrate(prev, { apply }) {
     const result = apply(prev)
-    // customize transformation here
-    return result
+    // customize transformation here: restructure \`result\` to match the new
+    // schema and return it. This guard stays until you do — running the
+    // empty transform would silently advance the version over stale data,
+    // making the real transform impossible to run later.
+    throw new Error(
+      "Migration ${idx + 1} has not been customized yet: edit migrate() in this file before starting the app",
+    )
   },
 }
 

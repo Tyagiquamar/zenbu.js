@@ -1012,4 +1012,50 @@ describe("migration plugin (imperative array transform)", () => {
     expect(agents).toHaveLength(2);
     expect(agents.filter((a: any) => a.id === "b")).toHaveLength(1);
   });
+
+  it("migrate that throws fails startup and does not advance the version", async () => {
+    const dbPath = tmpDbPath();
+    cleanupPath = dbPath;
+
+    const schema = createSchema({
+      title: f.string().default("untitled"),
+      extra: f.number().default(0),
+    });
+
+    await createDb({
+      path: dbPath,
+      schema: createSchema({ title: f.string().default("untitled") }),
+      migrations: [],
+      send: () => {},
+    });
+
+    const throwing: KyjuMigration = {
+      version: 1,
+      migrate: () => {
+        throw new Error("Migration 1 has not been customized yet");
+      },
+    };
+
+    let bootError: unknown;
+    try {
+      await openDb(dbPath, schema, [throwing]);
+    } catch (e) {
+      bootError = e;
+    }
+    expect(bootError).toBeDefined();
+
+    // The failed migration must not have recorded version 1, otherwise a
+    // fixed migrate() would be skipped forever and the data stays stale.
+    const benign: KyjuMigration[] = [
+      {
+        version: 1,
+        operations: [
+          { op: "add", key: "extra", kind: "data", hasDefault: true, default: 5 },
+        ],
+      },
+    ];
+    const { replica } = await openDb(dbPath, schema, benign);
+    const client = createClient<InferSchema<typeof schema>>(replica);
+    expect(client.extra.read()).toBe(5);
+  });
 });
