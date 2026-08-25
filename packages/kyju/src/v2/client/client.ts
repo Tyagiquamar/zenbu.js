@@ -748,7 +748,7 @@ function wrapEffectProxy(target: any): any {
           const result = val(...args);
           if (Effect.isEffect(result)) {
             return Effect.runPromise(
-              (result as Effect.Effect<any, any, unknown>).pipe(
+              (result as Effect.Effect<any, any, never>).pipe(
                 Effect.catchAll((error) =>
                   Effect.fail(
                     error instanceof Error
