@@ -155,7 +155,9 @@ describe("collection.delete", () => {
       root.messages.collectionId,
     );
 
-    await ctx.client.messages.delete();
+    await expect(ctx.client.messages.delete()).rejects.toThrow(
+      /ReferenceExistsError/,
+    );
     // collection should still exist because root still references it
     expect(fs.existsSync(collectionDir)).toBe(true);
   });
@@ -212,7 +214,9 @@ describe("blob", () => {
     const root = ctx.client.readRoot() as any;
     const blobDir = path.join(ctx.dbPath, "blobs", root.data.blobId);
 
-    await ctx.client.data.delete();
+    await expect(ctx.client.data.delete()).rejects.toThrow(
+      /ReferenceExistsError/,
+    );
     expect(fs.existsSync(blobDir)).toBe(true);
   });
 });
