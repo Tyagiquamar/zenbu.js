@@ -137,4 +137,18 @@ describe("createProxy", () => {
     expect(ids).toHaveLength(3);
     expect(new Set(ids).size).toBe(3);
   });
+
+  it("reuses the same proxy instance for repeated property access", () => {
+    const pending = createPendingRequests();
+
+    type Router = { app: { counter: { increment: () => number } } };
+    const proxy = createProxy<Router>({
+      send: () => {},
+      pending,
+    });
+
+    expect(proxy.app).toBe(proxy.app);
+    expect(proxy.app.counter).toBe(proxy.app.counter);
+    expect(proxy.app).not.toBe(proxy.app.counter);
+  });
 });

@@ -1,4 +1,3 @@
-import { nanoid } from "nanoid";
 import type { RouterProxy } from "./types";
 import { serialize } from "./protocol";
 import type { createPendingRequests } from "./pending";
@@ -8,23 +7,49 @@ type ProxyDeps = {
   pending: ReturnType<typeof createPendingRequests>;
 };
 
+type PathNode = {
+  parent: PathNode | null;
+  prop: string | null;
+  children: Map<string, unknown>;
+};
+
 export const createProxy = <T extends Record<string, any>>(
   deps: ProxyDeps,
 ): RouterProxy<T> => {
-  const makeProxy = (currentPath: string[]): any => {
+  let nextId = 0;
+
+  // One proxy per traversal path, memoized in a tree keyed by the actual
+  // property chain (no string join, so property names containing "." stay
+  // unambiguous). Property access becomes a Map lookup instead of
+  // allocating a fresh array + Proxy on every get.
+  const makeNode = (parent: PathNode | null, prop: string | null): any => {
+    const node: PathNode = {
+      parent,
+      prop,
+      children: new Map(),
+    };
     return new Proxy(function () {}, {
-      get(_target, prop, _receiver) {
-        if (typeof prop === "symbol") return undefined;
-        return makeProxy([...currentPath, prop as string]);
+      get(_target, p) {
+        if (typeof p === "symbol") return undefined;
+        let child = node.children.get(p);
+        if (!child) {
+          child = makeNode(node, p as string);
+          node.children.set(p, child);
+        }
+        return child;
       },
       apply(_target, _thisArg, args: unknown[]) {
-        const id = nanoid();
+        const path: string[] = [];
+        for (let n: PathNode | null = node; n && n.prop !== null; n = n.parent) {
+          path.unshift(n.prop);
+        }
+        const id = String(++nextId);
         const promise = deps.pending.add(id);
-        deps.send(serialize({ type: "request", id, path: currentPath, args }));
+        deps.send(serialize({ type: "request", id, path, args }));
         return promise;
       },
     });
   };
 
-  return makeProxy([]) as RouterProxy<T>;
+  return makeNode(null, null) as RouterProxy<T>;
 };
